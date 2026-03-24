@@ -1,0 +1,24 @@
+*.iml
+.gradle/
+.idea/
+.kotlin/
+local.properties
+.DS_Store
+
+# Build outputs
+build/
+app/build/
+
+# Captures
+/captures
+
+# Native
+.externalNativeBuild/
+.cxx/
+
+# Keystore (keep out of version control)
+*.jks
+*.keystore
+
+# Google Services (may contain API keys)
+google-services.json
