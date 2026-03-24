@@ -2,7 +2,13 @@ package com.diffusethinking.cognitrack.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.diffusethinking.cognitrack.R
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -47,7 +53,13 @@ fun AboutScreen() {
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("⚡", fontSize = 64.sp)
+        Image(
+            painter = painterResource(R.drawable.app_icon_display),
+            contentDescription = "CogniTrack",
+            modifier = Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(22.dp))
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             "CogniTrack",

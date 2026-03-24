@@ -1,6 +1,10 @@
 package com.diffusethinking.cognitrack.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.diffusethinking.cognitrack.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -167,7 +171,13 @@ private fun WelcomePage() {
             modifier = Modifier.widthIn(max = 600.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("⚡", fontSize = 80.sp)
+            Image(
+                painter = painterResource(R.drawable.app_icon_display),
+                contentDescription = "CogniTrack",
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(26.dp))
+            )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
                 "CogniTrack",

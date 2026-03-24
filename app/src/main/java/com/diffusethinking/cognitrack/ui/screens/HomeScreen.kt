@@ -1,6 +1,10 @@
 package com.diffusethinking.cognitrack.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.diffusethinking.cognitrack.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -57,7 +62,13 @@ fun HomeScreen(
     ) {
         Spacer(modifier = Modifier.weight(1f))
 
-        Text("⚡", fontSize = 64.sp)
+        Image(
+            painter = painterResource(R.drawable.app_icon_display),
+            contentDescription = "CogniTrack",
+            modifier = Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(22.dp))
+        )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             "Reaction Time Test",
