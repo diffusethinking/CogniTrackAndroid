@@ -419,9 +419,13 @@ private fun RTChart(
 ) {
     if (dailyAggregates.isEmpty()) return
 
+    val halfDay = 12 * 3600 * 1000L
+    val oneDay = 24 * 3600 * 1000L
+
+    // X-axis spans from start-of-first-day to end-of-last-day (matching iOS chartEnd)
     val xMin = dailyAggregates.first().dateMs.toFloat()
-    val xMax = dailyAggregates.last().dateMs.toFloat()
-    val xRange = if (xMax == xMin) 1f else xMax - xMin
+    val xMax = (dailyAggregates.last().dateMs + oneDay).toFloat()
+    val xRange = xMax - xMin
 
     val allYValues = dailyAggregates.map { it.averageRT } + baselineSegments.map { it.value }
     val yLo = allYValues.min()
@@ -434,13 +438,16 @@ private fun RTChart(
 
     val cyanColor = AppCyan
     val indigoColor = AppIndigo.copy(alpha = 0.6f)
+    val dashEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
 
     Canvas(
         modifier = modifier.pointerInput(dailyAggregates) {
             detectTapGestures { offset ->
                 val w = size.width.toFloat()
                 val tappedMs = xMin + (offset.x / w) * xRange
-                val nearest = dailyAggregates.minByOrNull { abs(it.dateMs - tappedMs) }
+                val nearest = dailyAggregates.minByOrNull {
+                    abs((it.dateMs + halfDay) - tappedMs)
+                }
                 onDaySelected(nearest?.dateMs)
             }
         }
@@ -448,10 +455,11 @@ private fun RTChart(
         val w = size.width
         val h = size.height
 
-        fun mapX(ms: Long) = if (xMax == xMin) w / 2 else ((ms - xMin) / xRange) * w
+        fun mapX(ms: Long) = ((ms - xMin) / xRange) * w
         fun mapY(v: Double) = h - ((v - yMin) / yRange * h).toFloat()
 
-        for (seg in baselineSegments) {
+        // Baseline segments: horizontal dashed lines with vertical steps between them
+        for ((i, seg) in baselineSegments.withIndex()) {
             val sx = mapX(seg.startMs)
             val ex = mapX(seg.endMs)
             val sy = mapY(seg.value)
@@ -460,24 +468,37 @@ private fun RTChart(
                 start = Offset(sx, sy),
                 end = Offset(ex, sy),
                 strokeWidth = 2f,
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
+                pathEffect = dashEffect
             )
+            // Vertical connector to next segment (step pattern, matching iOS series connection)
+            if (i + 1 < baselineSegments.size) {
+                val nextY = mapY(baselineSegments[i + 1].value)
+                drawLine(
+                    color = indigoColor,
+                    start = Offset(ex, sy),
+                    end = Offset(ex, nextY),
+                    strokeWidth = 2f,
+                    pathEffect = dashEffect
+                )
+            }
         }
 
+        // RT line — data dots shifted +0.5 day to sit at the center of their day
+        // (matching iOS Swift Charts unit: .day behavior)
         if (dailyAggregates.size > 1) {
             val linePath = Path().apply {
                 val first = dailyAggregates.first()
-                moveTo(mapX(first.dateMs), mapY(first.averageRT))
+                moveTo(mapX(first.dateMs + halfDay), mapY(first.averageRT))
                 for (i in 1 until dailyAggregates.size) {
                     val agg = dailyAggregates[i]
-                    lineTo(mapX(agg.dateMs), mapY(agg.averageRT))
+                    lineTo(mapX(agg.dateMs + halfDay), mapY(agg.averageRT))
                 }
             }
             drawPath(linePath, cyanColor, style = Stroke(width = 3f, cap = StrokeCap.Round))
         }
 
         for (agg in dailyAggregates) {
-            val cx = mapX(agg.dateMs)
+            val cx = mapX(agg.dateMs + halfDay)
             val cy = mapY(agg.averageRT)
             val dotColor = dotColorForAggregate(agg)
             val radius = if (agg.testCount > 1) 6f else 4f
@@ -485,7 +506,7 @@ private fun RTChart(
         }
 
         if (pinnedDay != null) {
-            val px = mapX(pinnedDay)
+            val px = mapX(pinnedDay + halfDay)
             drawLine(
                 color = Color.White.copy(alpha = 0.3f),
                 start = Offset(px, 0f),
@@ -494,18 +515,22 @@ private fun RTChart(
             )
         }
 
+        // Date labels centered under each day's dot
         val textPaint = android.graphics.Paint().apply {
             color = android.graphics.Color.argb(128, 255, 255, 255)
             textSize = 24f
             isAntiAlias = true
         }
         val sdf = SimpleDateFormat("M/d", Locale.getDefault())
+        val indicesToShow = mutableSetOf(0, dailyAggregates.lastIndex)
         val step = max(1, dailyAggregates.size / 5)
-        for (i in dailyAggregates.indices step step) {
+        for (i in dailyAggregates.indices step step) { indicesToShow.add(i) }
+        for (i in indicesToShow.sorted()) {
             val agg = dailyAggregates[i]
             val label = sdf.format(Date(agg.dateMs))
-            val tx = mapX(agg.dateMs)
-            drawContext.canvas.nativeCanvas.drawText(label, tx - 12f, h + 20f, textPaint)
+            val tx = mapX(agg.dateMs + halfDay)
+            val textWidth = textPaint.measureText(label)
+            drawContext.canvas.nativeCanvas.drawText(label, tx - textWidth / 2, h + 20f, textPaint)
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.diffusethinking.cognitrack.ui.screens
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,7 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+
 import com.diffusethinking.cognitrack.data.ExportData
 import com.diffusethinking.cognitrack.data.TestRecord
 import com.diffusethinking.cognitrack.ui.MainViewModel
@@ -50,7 +49,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
+
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -67,6 +66,51 @@ fun SettingsScreen(viewModel: MainViewModel) {
     var showSuccessDialog by remember { mutableStateOf("") }
     var showPVTDetail by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            scope.launch {
+                try {
+                    val records = withContext(Dispatchers.IO) {
+                        viewModel.getAllRecordsList()
+                    }
+                    val exportRecords = records.map { r ->
+                        ExportData.ExportRecord(
+                            startDate = r.startDate.toDouble(),
+                            isBaseline = r.isBaseline,
+                            isGuestMode = r.isGuestMode,
+                            guestName = r.guestName,
+                            trials = r.trials,
+                            averageRT = r.averageRT,
+                            lapseCount = r.lapseCount,
+                            baselineRT = r.baselineRT
+                        )
+                    }
+                    val data = ExportData(
+                        version = 1,
+                        exportedAt = System.currentTimeMillis().toDouble(),
+                        baselineRT = viewModel.baselineRT,
+                        baselineDate = viewModel.baselineDate,
+                        guestMode = viewModel.guestMode,
+                        guestName = viewModel.guestName,
+                        records = exportRecords
+                    )
+                    val jsonStr = Gson().toJson(data)
+                    withContext(Dispatchers.IO) {
+                        context.contentResolver.openOutputStream(it)?.use { out ->
+                            out.write(jsonStr.toByteArray())
+                        }
+                    }
+                    showSuccessDialog = "Your data has been exported."
+                } catch (e: Exception) {
+                    errorMessage = "Export failed: ${e.localizedMessage}"
+                    showErrorDialog = true
+                }
+            }
+        }
+    }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -85,7 +129,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     val exportData = Gson().fromJson(json, ExportData::class.java)
                     val records = exportData.records.map { r ->
                         TestRecord(
-                            startDate = r.startDate,
+                            startDate = ExportData.toUnixMillis(r.startDate),
                             isBaseline = r.isBaseline,
                             isGuestMode = r.isGuestMode,
                             guestName = r.guestName,
@@ -192,53 +236,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     icon = "📤",
                     title = "Export",
                     onClick = {
-                        scope.launch {
-                            try {
-                                val records = withContext(Dispatchers.IO) {
-                                    viewModel.getAllRecordsList()
-                                }
-                                val exportRecords = records.map { r ->
-                                    ExportData.ExportRecord(
-                                        startDate = r.startDate,
-                                        isBaseline = r.isBaseline,
-                                        isGuestMode = r.isGuestMode,
-                                        guestName = r.guestName,
-                                        trials = r.trials,
-                                        averageRT = r.averageRT,
-                                        lapseCount = r.lapseCount,
-                                        baselineRT = r.baselineRT
-                                    )
-                                }
-                                val data = ExportData(
-                                    version = 1,
-                                    exportedAt = System.currentTimeMillis(),
-                                    baselineRT = viewModel.baselineRT,
-                                    baselineDate = viewModel.baselineDate,
-                                    guestMode = viewModel.guestMode,
-                                    guestName = viewModel.guestName,
-                                    records = exportRecords
-                                )
-                                val jsonStr = Gson().toJson(data)
-                                val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
-                                val fileName = "CogniTrack_${sdf.format(Date())}.cognitrack"
-                                val file = File(context.cacheDir, fileName)
-                                withContext(Dispatchers.IO) { file.writeText(jsonStr) }
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file
-                                )
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    type = "application/json"
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Export CogniTrack Data"))
-                            } catch (e: Exception) {
-                                errorMessage = "Export failed: ${e.localizedMessage}"
-                                showErrorDialog = true
-                            }
-                        }
+                        val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
+                        val fileName = "CogniTrack_${sdf.format(Date())}.cognitrack"
+                        exportLauncher.launch(fileName)
                     }
                 )
                 SettingsRow(
