@@ -334,7 +334,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
 private fun SectionHeader(title: String) {
     Text(
         title,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.titleSmall,
         color = Color.White.copy(alpha = 0.5f),
         modifier = Modifier.padding(start = 16.dp, top = 24.dp, bottom = 8.dp)
     )

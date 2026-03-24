@@ -318,7 +318,7 @@ fun TrendsScreen(
                         .height(220.dp)
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 if (dailyAggregates.size == 1) {
                     Box(
