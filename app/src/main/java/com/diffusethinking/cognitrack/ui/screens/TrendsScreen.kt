@@ -295,7 +295,7 @@ fun TrendsScreen(
                             modifier = Modifier
                                 .width(16.dp)
                                 .height(2.dp)
-                                .background(AppIndigo.copy(alpha = 0.6f), RoundedCornerShape(1.dp))
+                                .background(AppIndigo.copy(alpha = 0.85f), RoundedCornerShape(1.dp))
                         )
                         Spacer(modifier = Modifier.width(5.dp))
                         Text(
@@ -437,7 +437,7 @@ private fun RTChart(
     val yRange = yMax - yMin
 
     val cyanColor = AppCyan
-    val indigoColor = AppIndigo.copy(alpha = 0.6f)
+    val indigoColor = AppIndigo.copy(alpha = 0.85f)
     val dashEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
 
     Canvas(
@@ -458,29 +458,24 @@ private fun RTChart(
         fun mapX(ms: Long) = ((ms - xMin) / xRange) * w
         fun mapY(v: Double) = h - ((v - yMin) / yRange * h).toFloat()
 
-        // Baseline segments: horizontal dashed lines with vertical steps between them
-        for ((i, seg) in baselineSegments.withIndex()) {
-            val sx = mapX(seg.startMs)
-            val ex = mapX(seg.endMs)
-            val sy = mapY(seg.value)
-            drawLine(
-                color = indigoColor,
-                start = Offset(sx, sy),
-                end = Offset(ex, sy),
-                strokeWidth = 2f,
-                pathEffect = dashEffect
-            )
-            // Vertical connector to next segment (step pattern, matching iOS series connection)
-            if (i + 1 < baselineSegments.size) {
-                val nextY = mapY(baselineSegments[i + 1].value)
-                drawLine(
-                    color = indigoColor,
-                    start = Offset(ex, sy),
-                    end = Offset(ex, nextY),
-                    strokeWidth = 2f,
-                    pathEffect = dashEffect
-                )
+        // Baseline: single continuous path so the dash pattern flows smoothly
+        // across all segment boundaries (no visual breaks at junctions)
+        if (baselineSegments.isNotEmpty()) {
+            val baselinePath = Path().apply {
+                val first = baselineSegments.first()
+                moveTo(mapX(first.startMs), mapY(first.value))
+                for ((i, seg) in baselineSegments.withIndex()) {
+                    lineTo(mapX(seg.endMs), mapY(seg.value))
+                    if (i + 1 < baselineSegments.size) {
+                        lineTo(mapX(seg.endMs), mapY(baselineSegments[i + 1].value))
+                    }
+                }
             }
+            drawPath(
+                baselinePath,
+                indigoColor,
+                style = Stroke(width = 2f, pathEffect = dashEffect)
+            )
         }
 
         // RT line — data dots shifted +0.5 day to sit at the center of their day
