@@ -1,6 +1,7 @@
 package com.diffusethinking.cognitrack.engine
 
 import android.os.SystemClock
+import android.view.Choreographer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -48,11 +49,16 @@ class PVTEngine(
             trialResults.count { it > threshold }
         } ?: 0
 
-    fun handleTap(scope: CoroutineScope) {
+    /**
+     * @param eventTimeMs hardware touch timestamp from MotionEvent.eventTime
+     *        (uptimeMillis timebase), so reaction time is measured from the
+     *        actual finger-down moment, not from when the framework delivers the callback.
+     */
+    fun handleTap(scope: CoroutineScope, eventTimeMs: Long = SystemClock.uptimeMillis()) {
         when (phase) {
             Phase.Ready -> advanceToNextTrial(scope)
             Phase.Waiting -> triggerFalseStart(scope)
-            is Phase.Stimulus -> recordResponse(scope)
+            is Phase.Stimulus -> recordResponse(scope, eventTimeMs)
             else -> {}
         }
     }
@@ -84,8 +90,17 @@ class PVTEngine(
         activeJob?.cancel()
         activeJob = scope.launch {
             delay(delayMs)
-            stimulusOnsetTime = SystemClock.elapsedRealtime()
+            // Set a preliminary timestamp so the first rendered frame shows ~0 ms
+            stimulusOnsetTime = SystemClock.uptimeMillis()
             phase = Phase.Stimulus
+            // Refine via double Choreographer callback to match iOS CADisplayLink:
+            // 1st callback fires at the vsync where Compose recomposes/draws the stimulus
+            // 2nd callback fires at the NEXT vsync ≈ when the frame is actually presented
+            Choreographer.getInstance().postFrameCallback {
+                Choreographer.getInstance().postFrameCallback {
+                    stimulusOnsetTime = SystemClock.uptimeMillis()
+                }
+            }
         }
     }
 
@@ -98,10 +113,9 @@ class PVTEngine(
         }
     }
 
-    private fun recordResponse(scope: CoroutineScope) {
+    private fun recordResponse(scope: CoroutineScope, eventTimeMs: Long) {
         activeJob?.cancel()
-        val now = SystemClock.elapsedRealtime()
-        val reactionMs = (now - stimulusOnsetTime).toDouble()
+        val reactionMs = (eventTimeMs - stimulusOnsetTime).toDouble()
         trialResults.add(reactionMs)
         phase = Phase.Responded(ms = reactionMs.toInt())
 
