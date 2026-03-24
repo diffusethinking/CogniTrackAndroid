@@ -16,6 +16,10 @@ app/build/
 .externalNativeBuild/
 .cxx/
 
+# Release artifacts
+*.aab
+*.apk
+
 # Keystore (keep out of version control)
 *.jks
 *.keystore
